@@ -41,6 +41,7 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+    #----------------------------
     'accounts.apps.AccountsConfig',
     'folders.apps.FoldersConfig',
     'files.apps.FilesConfig',
@@ -135,6 +136,8 @@ STATIC_URL = 'static/'
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field
 
+AUTH_USER_MODEL = 'auth.User'
+DEFAULT_QUOTA_MB = env.int('DEFAULT_QUOTA_MB', default=100)
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 REST_FRAMEWORK = {
@@ -142,7 +145,7 @@ REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': [
         'rest_framework_simplejwt.authentication.JWTAuthentication',
     ],
-}   
+}
 
 from datetime import timedelta
 

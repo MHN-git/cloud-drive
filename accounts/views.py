@@ -1,13 +1,11 @@
-from django.http import HttpResponse
-from django.shortcuts import render
 from rest_framework import permissions
 from rest_framework.generics import CreateAPIView
-from rest_framework.views import APIView
 
 from accounts.serializers import SignUpSerializer
 
 class SignUpAPIView(CreateAPIView):
     serializer_class = SignUpSerializer
+
 
 # class LoginAPIView(APIView):
 #     serializer_class = LoginSerializer
@@ -27,8 +25,3 @@ class SignUpAPIView(CreateAPIView):
 #
 #
 #
-
-class api(APIView):
-    permission_classes = [permissions.IsAuthenticated]
-    def get(self, request):
-        return HttpResponse("Hello, world.")

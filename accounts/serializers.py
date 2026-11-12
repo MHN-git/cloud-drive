@@ -1,6 +1,11 @@
 from django.contrib.auth import authenticate, login
-from django.contrib.auth.models import User
+from django.contrib.auth import get_user_model
 from rest_framework import serializers
+from django.db import transaction
+
+from quota.models import Quota
+
+User = get_user_model()
 
 class SignUpSerializer(serializers.ModelSerializer):
     password1 = serializers.CharField(write_only=True)
@@ -8,7 +13,7 @@ class SignUpSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = User
-        fields = ('username', 'password1', 'password2')
+        fields = ('id', 'username', 'password1', 'password2')
 
     def validate_username(self, username):
         if User.objects.filter(username=username).exists():
@@ -23,33 +28,35 @@ class SignUpSerializer(serializers.ModelSerializer):
         attrs.setdefault('password', password1)
         return attrs
 
+    @transaction.atomic
     def create(self, validated_data):
         user = User.objects.create_user(**validated_data)
-        user.save()
+        Quota.objects.create(owner=user)
+
         return user
 
 
-class LoginSerializer(serializers.ModelSerializer):
-        username = serializers.CharField(max_length=150)
-        password = serializers.CharField(max_length=128)
-
-        class Meta:
-            model = User
-            fields = ('username', 'password')
-
-        def validate(self, attrs):
-            username = attrs.get('username')
-            password = attrs.get('password')
-
-            user = authenticate(self.context.get('request'), username=username, password=password)
-            if user is None:
-                raise serializers.ValidationError("Invalid credentials")
-            else:
-                self.confirm_login_allowed(user)
-
-            return attrs
-
-        def confirm_login_allowed(self, user):
-            if not user.is_active:
-                raise serializers.ValidationError("User is not active")
-
+# class LoginSerializer(serializers.ModelSerializer):
+#         username = serializers.CharField(max_length=150)
+#         password = serializers.CharField(max_length=128)
+#
+#         class Meta:
+#             model = User
+#             fields = ('username', 'password')
+#
+#         def validate(self, attrs):
+#             username = attrs.get('username')
+#             password = attrs.get('password')
+#
+#             user = authenticate(self.context.get('request'), username=username, password=password)
+#             if user is None:
+#                 raise serializers.ValidationError("Invalid credentials")
+#             else:
+#                 self.confirm_login_allowed(user)
+#
+#             return attrs
+#
+#         def confirm_login_allowed(self, user):
+#             if not user.is_active:
+#                 raise serializers.ValidationError("User is not active")
+#
