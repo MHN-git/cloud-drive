@@ -1,6 +1,8 @@
+import uuid
 from datetime import timedelta
 
 from django.conf import settings
+from django.utils import timezone
 from rest_framework.response import Response
 from rest_framework.viewsets import GenericViewSet
 from rest_framework import mixins
@@ -8,6 +10,7 @@ from rest_framework.decorators import action
 from rest_framework.exceptions import ValidationError
 from rest_framework.permissions import IsAuthenticated
 
+from files.kafka_producer import publish_upload_complete
 from files.minio_client import get_minio_client
 from files.models import Files
 from files.permissions import FileRetrieveUpdatePermission
@@ -54,3 +57,29 @@ class FileViewSet(mixins.ListModelMixin,
                          'expires_in': expires_in,})
 
 
+    @action(detail=True, methods=['post'], url_path='complete-upload')
+    def complete_upload(self, request, pk):
+        file_obj = self.get_object()
+
+        if file_obj.status != Files.Status.PENDING:
+            raise ValidationError("only pending files can be completed")
+
+        event = {
+            "event_id": str(uuid.uuid4()),
+            "event_type": "file.upload.complete",
+            "occurred_at":timezone.now().isoformat()    ,
+            "paylod": {
+                "file_id":file_obj.id,
+                "owner_id":file_obj.owner_id,
+                "storage_key":file_obj.storage_key,
+                "declared_size_bytes":file_obj.declared_size_bytes,
+            }
+        }
+
+        publish_upload_complete(event)
+
+        return Response({
+            "message": "Upload completion event published.",
+            "file_id": file_obj.id,
+            "status": file_obj.status,
+            })
