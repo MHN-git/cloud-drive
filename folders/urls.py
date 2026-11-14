@@ -1,8 +1,8 @@
-from django.urls import path
+from rest_framework.routers import DefaultRouter
 
-from folders.views import *
+from folders.views import FolderViewSet
 
-urlpatterns = [
-    path('', FolderListCreateAPIView.as_view(), name='folder-list-create'),
-    path('<int:pk>', FolderRetrieveUpdateDestroyAPIView.as_view(), name='folder-retrieve-update-delete'),
-]
+router = DefaultRouter()
+router.register('folders', FolderViewSet, basename='folder')
+
+urlpatterns = router.urls

@@ -1,8 +1,8 @@
-from django.urls import path
+from rest_framework.routers import DefaultRouter
 
-from files.views import *
+from files.views import FileViewSet
 
-urlpatterns = [
-    path('', FileListCreateApiView.as_view(), name='file-list-create'),
-    path('<int:pk>', FileRetrieveUpdateApiView.as_view(), name='file-retrieve-update'),
-]
+router = DefaultRouter()
+router.register('files', FileViewSet, basename='file')
+
+urlpatterns = router.urls
