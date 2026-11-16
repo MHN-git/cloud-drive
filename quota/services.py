@@ -4,7 +4,7 @@ from quota.models import Quota
 
 
 def get_user_quota_data(owner_id):
-    cache_key = cache.make_key(f"user:{owner_id}:quota")
+    cache_key = f"user:{owner_id}:quota"
     cached_data = cache.get(cache_key)
 
     if cached_data is not None:

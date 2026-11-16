@@ -3,16 +3,17 @@ from datetime import timedelta
 
 from django.conf import settings
 from django.core.cache import cache
+from django.db import transaction
 from django.utils import timezone
 
 from rest_framework.response import Response
 from rest_framework.viewsets import GenericViewSet
-from rest_framework import mixins, filters
+from rest_framework import mixins, status
 from rest_framework.decorators import action
 from rest_framework.exceptions import ValidationError
 from rest_framework.permissions import IsAuthenticated
 
-from files.kafka_producer import publish_upload_complete
+from files.kafka_producer import publish_upload_complete, publish_quota_recalculate
 from files.minio_client import get_minio_client
 from files.models import Files
 from files.permissions import FileRetrieveUpdatePermission
@@ -23,6 +24,7 @@ class FileViewSet(mixins.ListModelMixin,
                   mixins.CreateModelMixin,
                   mixins.RetrieveModelMixin,
                   mixins.UpdateModelMixin,
+                  mixins.DestroyModelMixin,
                   GenericViewSet):
 
     queryset = Files.objects.all()
@@ -56,6 +58,7 @@ class FileViewSet(mixins.ListModelMixin,
         cache_key = get_folder_files_cache_key(owner_id=request.user.id,folder_id=folder_id)
         cached_data = cache.get(cache_key)
         if cached_data:
+            print(cached_data)
             return Response(cached_data)
 
         data = self.filter_queryset(self.get_queryset(), folder=folder_id)
@@ -63,6 +66,40 @@ class FileViewSet(mixins.ListModelMixin,
         cache.set(cache_key, serializer.data, timeout=300)
 
         return Response(serializer.data)
+
+    def destroy(self, request, *args, **kwargs):
+        file_obj = self.get_object()
+
+        owner_id = file_obj.owner_id
+        folder_id = file_obj.folder_id
+        file_id = file_obj.id
+        storage_key = file_obj.storage_key
+
+        file_status = file_obj.status
+        if file_status != Files.Status.FAILED:
+            minio_client = get_minio_client()
+            minio_client.remove_object(settings.MINIO_BUCKET,storage_key)
+
+        with transaction.atomic():
+            file_obj = Files.objects.select_for_update().get(pk=file_id)
+            file_obj.delete()
+
+        invalidate_folder_files_cache(owner_id=owner_id, folder_id=folder_id)
+
+        quota_event = {
+            "event_id": str(uuid.uuid4()),
+            "event_type": "quota.recalculate",
+            "occurred_at": timezone.now().isoformat(),
+            "payload": {
+                "owner_id": owner_id,
+                "reason": "file_deleted",
+                "file_id": file_id,
+            },
+        }
+
+        publish_quota_recalculate(quota_event)
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
 
     def filter_queryset(self, queryset, **params):
         filtered_queryset =  queryset.filter(**params)

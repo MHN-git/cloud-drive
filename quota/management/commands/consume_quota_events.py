@@ -30,7 +30,7 @@ class Command(BaseCommand):
                 Quota.recalculate_user_quota(owner_id)
                 consumer.commit()
 
-                self.stdout.write(f"quota recalculation for {owner_id}")
+                self.stdout.write(f"quota recalculated for owner:{owner_id}")
 
         finally:
             consumer.close()
