@@ -33,6 +33,7 @@ ALLOWED_HOSTS = env.list('ALLOWED_HOSTS')
 
 # minio ------------------------------------------------------------
 MINIO_ENDPOINT = env("MINIO_ENDPOINT")
+MINIO_PUBLIC_ENDPOINT = env("MINIO_PUBLIC_ENDPOINT",default="localhost:8080",)
 MINIO_ACCESS_KEY = env("MINIO_ACCESS_KEY")
 MINIO_SECRET_KEY = env("MINIO_SECRET_KEY")
 MINIO_BUCKET = env("MINIO_BUCKET")

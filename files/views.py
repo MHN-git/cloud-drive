@@ -14,7 +14,7 @@ from rest_framework.exceptions import ValidationError
 from rest_framework.permissions import IsAuthenticated
 
 from files.kafka_producer import publish_upload_complete, publish_quota_recalculate
-from files.minio_client import get_minio_client
+from files.minio_client import get_minio_client, get_minio_public_client
 from files.models import Files
 from files.permissions import FileRetrieveUpdatePermission
 from files.serializers import FileSerializer
@@ -115,7 +115,7 @@ class FileViewSet(mixins.ListModelMixin,
         if file_obj.status != Files.Status.PENDING:
             raise ValidationError("upload url can only be generated for pending files")
 
-        client = get_minio_client()
+        client = get_minio_public_client()
 
         expires_in = settings.MINIO_PRESIGNED_URL_EXPIRY_SECONDS
         upload_url = client.presigned_put_object(bucket_name=settings.MINIO_BUCKET,
@@ -164,7 +164,7 @@ class FileViewSet(mixins.ListModelMixin,
         if file_status != Files.Status.READY:
             raise ValidationError("this file is not available for download")
 
-        minio_client = get_minio_client()
+        minio_client = get_minio_public_client()
 
         expires_in = settings.MINIO_PRESIGNED_URL_EXPIRY_SECONDS
 
