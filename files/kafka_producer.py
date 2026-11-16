@@ -11,12 +11,12 @@ def get_kafka_producer():
         retries=5,
     )
 
-def publish_upload_complete(event):
+def publish_event(event, topic):
     producer = get_kafka_producer()
 
     try:
         future = producer.send(
-            topic=settings.KAFKA_UPLOAD_COMPLETED_TOPIC,
+            topic=topic,
             value=event
         )
 
@@ -25,3 +25,10 @@ def publish_upload_complete(event):
     finally:
         producer.close()
 
+def publish_upload_complete(event):
+    topic=settings.KAFKA_UPLOAD_COMPLETED_TOPIC
+    publish_event(event=event, topic=topic)
+
+def publish_quota_recalculate(event):
+    topic= settings.KAFKA_QUOTA_RECALCULATE_TOPIC
+    publish_event(event=event, topic=topic)

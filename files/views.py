@@ -2,10 +2,12 @@ import uuid
 from datetime import timedelta
 
 from django.conf import settings
+from django.core.cache import cache
 from django.utils import timezone
+
 from rest_framework.response import Response
 from rest_framework.viewsets import GenericViewSet
-from rest_framework import mixins
+from rest_framework import mixins, filters
 from rest_framework.decorators import action
 from rest_framework.exceptions import ValidationError
 from rest_framework.permissions import IsAuthenticated
@@ -15,8 +17,7 @@ from files.minio_client import get_minio_client
 from files.models import Files
 from files.permissions import FileRetrieveUpdatePermission
 from files.serializers import FileSerializer
-
-
+from files.cache_utils import get_folder_files_cache_key, invalidate_folder_files_cache
 
 class FileViewSet(mixins.ListModelMixin,
                   mixins.CreateModelMixin,
@@ -36,7 +37,39 @@ class FileViewSet(mixins.ListModelMixin,
         # ,but you can't access it. so 404 is better for less data leakage
 
     def perform_create(self, serializer):
-        serializer.save(owner=self.request.user)
+        instance = serializer.save(owner=self.request.user)
+        owner_id = instance.owner_id
+        folder_id = instance.folder_id
+        invalidate_folder_files_cache(owner_id=owner_id, folder_id=folder_id)
+
+    def perform_update(self, serializer):
+        instance = serializer.save()
+        owner_id = instance.owner_id
+        folder_id = instance.folder_id
+        invalidate_folder_files_cache(owner_id=owner_id, folder_id=folder_id)
+
+    def list(self, request, *args, **kwargs):
+        folder_id = request.query_params.get("folder")
+        if not folder_id:
+            return super().list(request, *args, **kwargs)
+
+        cache_key = get_folder_files_cache_key(owner_id=request.user.id,folder_id=folder_id)
+        cached_data = cache.get(cache_key)
+        if cached_data:
+            return Response(cached_data)
+
+        data = self.filter_queryset(self.get_queryset(), folder=folder_id)
+        serializer = self.get_serializer(data, many=True)
+        cache.set(cache_key, serializer.data, timeout=300)
+
+        return Response(serializer.data)
+
+    def filter_queryset(self, queryset, **params):
+        filtered_queryset =  queryset.filter(**params)
+        if filtered_queryset.exists():
+            return filtered_queryset
+        else:
+            raise ValidationError(detail={'detail': 'No Files matches the given query.'})
 
     @action(detail=True, methods=['post'], url_path='upload-url')
     def upload_url(self, request, pk):
@@ -68,7 +101,7 @@ class FileViewSet(mixins.ListModelMixin,
             "event_id": str(uuid.uuid4()),
             "event_type": "file.upload.complete",
             "occurred_at":timezone.now().isoformat()    ,
-            "paylod": {
+            "payload": {
                 "file_id":file_obj.id,
                 "owner_id":file_obj.owner_id,
                 "storage_key":file_obj.storage_key,

@@ -31,7 +31,7 @@ DEBUG = env('DEBUG')
 
 ALLOWED_HOSTS = env.list('ALLOWED_HOSTS')
 
-# minio 
+# minio ------------------------------------------------------------
 MINIO_ENDPOINT = env("MINIO_ENDPOINT")
 MINIO_ACCESS_KEY = env("MINIO_ACCESS_KEY")
 MINIO_SECRET_KEY = env("MINIO_SECRET_KEY")
@@ -42,11 +42,16 @@ MINIO_PRESIGNED_URL_EXPIRY_SECONDS = env.int(
     "MINIO_PRESIGNED_URL_EXPIRY_SECONDS",
     default=600,
 )
-
+# kafka -------------------------------------------------------------
 KAFKA_BOOTSTRAP_SERVERS = env("KAFKA_BOOTSTRAP_SERVERS")
 
 KAFKA_UPLOAD_COMPLETED_TOPIC = env("KAFKA_UPLOAD_COMPLETED_TOPIC")
 
+KAFKA_QUOTA_RECALCULATE_TOPIC = env("KAFKA_QUOTA_RECALCULATE_TOPIC")
+
+# redis --------------------------------------------------------------
+
+REDIS_URL = env("REDIS_URL")
 
 # Application definition
 
@@ -175,4 +180,15 @@ SPECTACULAR_SETTINGS = {
     "TITLE": "Cloud Drive API",
     "DESCRIPTION": "Personal Cloud Drive API",
     "VERSION": "1.0.0",
+}
+
+CACHES = {
+    "default": {
+        "BACKEND": "django_redis.cache.RedisCache",
+        "LOCATION": REDIS_URL,
+        "OPTIONS": {
+            "CLIENT_CLASS": "django_redis.client.DefaultClient",
+        },
+        "TIMEOUT": 300,
+    }
 }
