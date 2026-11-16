@@ -153,3 +153,29 @@ class FileViewSet(mixins.ListModelMixin,
             "file_id": file_obj.id,
             "status": file_obj.status,
             })
+
+    @action(detail=True, methods=['get'], url_path='download-url')
+    def download_url(self, request, pk):
+        file_obj = self.get_object()
+
+        storage_key = file_obj.storage_key
+        file_status = file_obj.status
+
+        if file_status != Files.Status.READY:
+            raise ValidationError("this file is not available for download")
+
+        minio_client = get_minio_client()
+
+        expires_in = settings.MINIO_PRESIGNED_URL_EXPIRY_SECONDS
+
+        download_url = minio_client.presigned_get_object(
+            bucket_name=settings.MINIO_BUCKET,
+            object_name=file_obj.storage_key,
+            expires=timedelta(seconds=expires_in),
+        )
+
+        return Response({
+            'upload_url': download_url,
+            'expires_in': expires_in,
+        })
+
