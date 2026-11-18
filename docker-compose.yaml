@@ -91,12 +91,7 @@ services:
     command: redis-server --appendonly yes
 
   minio-init:
-    build:
-      context: .
-      args:
-        - HTTP_PROXY=http://host.docker.internal:10808
-        - HTTPS_PROXY=http://host.docker.internal:10808
-        - NO_PROXY=localhost,127.0.0.1,postgres,redis,kafka,minio
+    build: .
     command: python manage.py ensure_minio_bucket
     env_file:
       - .env
@@ -124,12 +119,7 @@ services:
     restart: unless-stopped
 
   migrate:
-    build:
-      context: .
-      args:
-        - HTTP_PROXY=http://host.docker.internal:10808
-        - HTTPS_PROXY=http://host.docker.internal:10808
-        - NO_PROXY=localhost,127.0.0.1,postgres,redis,kafka,minio
+    build: .
     container_name: drive-migrate
     command: python manage.py migrate
     env_file:
@@ -146,12 +136,7 @@ services:
     restart: "no"
 
   api:
-    build:
-      context: .
-      args:
-        - HTTP_PROXY=http://host.docker.internal:10808
-        - HTTPS_PROXY=http://host.docker.internal:10808
-        - NO_PROXY=localhost,127.0.0.1,postgres,redis,kafka,minio
+    build: .
     container_name: drive-api
 
     command: >
@@ -182,12 +167,7 @@ services:
     restart: unless-stopped
 
   complete-upload-consumer:
-    build:
-      context: .
-      args:
-        - HTTP_PROXY=http://host.docker.internal:10808
-        - HTTPS_PROXY=http://host.docker.internal:10808
-        - NO_PROXY=localhost,127.0.0.1,postgres,redis,kafka,minio
+    build: .
     container_name: drive-complete-upload-consumer
 
     command: python manage.py consume_upload_events
@@ -218,12 +198,7 @@ services:
     restart: unless-stopped
 
   quota-consumer:
-    build:
-      context: .
-      args:
-        - HTTP_PROXY=http://host.docker.internal:10808
-        - HTTPS_PROXY=http://host.docker.internal:10808
-        - NO_PROXY=localhost,127.0.0.1,postgres,redis,kafka,minio
+    build: .
     container_name: drive-quota-consumer
 
     command: python manage.py consume_quota_events
