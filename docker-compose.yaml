@@ -90,6 +90,23 @@ services:
 
     command: redis-server --appendonly yes
 
+  minio-init:
+    build:
+      context: .
+      args:
+        - HTTP_PROXY=http://host.docker.internal:10808
+        - HTTPS_PROXY=http://host.docker.internal:10808
+        - NO_PROXY=localhost,127.0.0.1,postgres,redis,kafka,minio
+    command: python manage.py ensure_minio_bucket
+    env_file:
+      - .env
+    environment:
+      MINIO_ENDPOINT: minio:9000
+    depends_on:
+      minio:
+        condition: service_healthy
+    restart: "no"
+
   nginx:
     image: nginx:alpine
 
@@ -101,8 +118,139 @@ services:
       - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
 
     depends_on:
+      - api
       - minio
 
+    restart: unless-stopped
+
+  migrate:
+    build:
+      context: .
+      args:
+        - HTTP_PROXY=http://host.docker.internal:10808
+        - HTTPS_PROXY=http://host.docker.internal:10808
+        - NO_PROXY=localhost,127.0.0.1,postgres,redis,kafka,minio
+    container_name: drive-migrate
+    command: python manage.py migrate
+    env_file:
+      - .env
+    environment:
+      DB_HOST: postgres
+      DB_PORT: 5432
+      REDIS_URL: redis://redis:6379/1
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      MINIO_ENDPOINT: minio:9000
+      MINIO_PUBLIC_ENDPOINT: localhost:8080
+    depends_on:
+      - postgres
+    restart: "no"
+
+  api:
+    build:
+      context: .
+      args:
+        - HTTP_PROXY=http://host.docker.internal:10808
+        - HTTPS_PROXY=http://host.docker.internal:10808
+        - NO_PROXY=localhost,127.0.0.1,postgres,redis,kafka,minio
+    container_name: drive-api
+
+    command: >
+      sh -c "gunicorn config.wsgi:application --bind 0.0.0.0:8000 --workers 3"
+
+    env_file:
+      - .env
+    environment:
+      DB_HOST: postgres
+      DB_PORT: 5432
+      REDIS_URL: redis://redis:6379/1
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      MINIO_ENDPOINT: minio:9000
+      MINIO_PUBLIC_ENDPOINT: localhost:8080
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_started
+      kafka:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+      minio-init:
+        condition: service_completed_successfully
+    restart: unless-stopped
+
+  complete-upload-consumer:
+    build:
+      context: .
+      args:
+        - HTTP_PROXY=http://host.docker.internal:10808
+        - HTTPS_PROXY=http://host.docker.internal:10808
+        - NO_PROXY=localhost,127.0.0.1,postgres,redis,kafka,minio
+    container_name: drive-complete-upload-consumer
+
+    command: python manage.py consume_upload_events
+
+    env_file:
+      - .env
+    environment:
+      DB_HOST: postgres
+      DB_PORT: 5432
+      REDIS_URL: redis://redis:6379/1
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      MINIO_ENDPOINT: minio:9000
+      MINIO_PUBLIC_ENDPOINT: localhost:8080
+
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_started
+      kafka:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+      minio-init:
+        condition: service_completed_successfully
+    restart: unless-stopped
+
+  quota-consumer:
+    build:
+      context: .
+      args:
+        - HTTP_PROXY=http://host.docker.internal:10808
+        - HTTPS_PROXY=http://host.docker.internal:10808
+        - NO_PROXY=localhost,127.0.0.1,postgres,redis,kafka,minio
+    container_name: drive-quota-consumer
+
+    command: python manage.py consume_quota_events
+
+    env_file:
+      - .env
+    environment:
+      DB_HOST: postgres
+      DB_PORT: 5432
+      REDIS_URL: redis://redis:6379/1
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      MINIO_ENDPOINT: minio:9000
+      MINIO_PUBLIC_ENDPOINT: localhost:8080
+
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_started
+      kafka:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+      minio-init:
+        condition: service_completed_successfully
     restart: unless-stopped
 
 volumes:
