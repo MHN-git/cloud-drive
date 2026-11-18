@@ -18,6 +18,8 @@ from django.contrib import admin
 from django.urls import path, include
 from drf_spectacular.views import SpectacularAPIView, SpectacularSwaggerView
 
+from config import health
+
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('api/schema/', SpectacularAPIView.as_view(), name='schema'),
@@ -26,4 +28,6 @@ urlpatterns = [
     path('api/v1/auth/', include('accounts.urls')),
     path('api/v1/', include('folders.urls')),
     path('api/v1/', include('files.urls')),
+    path("api/health/live/", health.live),
+    path("api/health/ready/", health.ready),
 ]

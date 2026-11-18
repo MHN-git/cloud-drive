@@ -5,10 +5,11 @@ from django.conf import settings
 from django.core.cache import cache
 from django.db import transaction
 from django.utils import timezone
+from drf_spectacular.utils import extend_schema, inline_serializer
 
 from rest_framework.response import Response
 from rest_framework.viewsets import GenericViewSet
-from rest_framework import mixins, status
+from rest_framework import mixins, status, serializers
 from rest_framework.decorators import action
 from rest_framework.exceptions import ValidationError
 from rest_framework.permissions import IsAuthenticated
@@ -108,6 +109,21 @@ class FileViewSet(mixins.ListModelMixin,
         else:
             raise ValidationError(detail={'detail': 'No Files matches the given query.'})
 
+    @extend_schema(
+        summary="Generate upload URL",
+        description="Generates a temporary presigned URL for uploading a pending file directly to MinIO.",
+        request=None,
+        responses={
+            200: inline_serializer(
+                name="UploadURLResponse",
+                fields={
+                    "upload_url": serializers.URLField(),
+                    "method": serializers.CharField(),
+                    "expires_in": serializers.IntegerField(),
+                },
+            )
+        },
+    )
     @action(detail=True, methods=['post'], url_path='upload-url')
     def upload_url(self, request, pk):
         file_obj = self.get_object()
@@ -126,7 +142,21 @@ class FileViewSet(mixins.ListModelMixin,
                          'method': 'PUT',
                          'expires_in': expires_in,})
 
-
+    @extend_schema(
+        summary="Complete file upload",
+        description="Publishes an event to Kafka so the consumer can verify the uploaded object and complete the upload process.",
+        request=None,
+        responses={
+            200: inline_serializer(
+                name="CompleteUploadResponse",
+                fields={
+                    "message": serializers.CharField(),
+                    "file_id": serializers.IntegerField(),
+                    "status": serializers.CharField(),
+                },
+            )
+        },
+    )
     @action(detail=True, methods=['post'], url_path='complete-upload')
     def complete_upload(self, request, pk):
         file_obj = self.get_object()
@@ -154,6 +184,20 @@ class FileViewSet(mixins.ListModelMixin,
             "status": file_obj.status,
             })
 
+    @extend_schema(
+        summary="Generate download URL",
+        description="Generates a temporary presigned URL for downloading a file. Only ready files can be downloaded.",
+        request=None,
+        responses={
+            200: inline_serializer(
+                name="DownloadURLResponse",
+                fields={
+                    "download_url": serializers.URLField(),
+                    "expires_in": serializers.IntegerField(),
+                },
+            )
+        },
+    )
     @action(detail=True, methods=['get'], url_path='download-url')
     def download_url(self, request, pk):
         file_obj = self.get_object()
@@ -175,7 +219,7 @@ class FileViewSet(mixins.ListModelMixin,
         )
 
         return Response({
-            'upload_url': download_url,
+            'download_url': download_url,
             'expires_in': expires_in,
         })
 
