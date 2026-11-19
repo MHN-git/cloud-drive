@@ -4,7 +4,6 @@ from rest_framework.viewsets import ModelViewSet
 from rest_framework.response import Response
 
 from folders.models import Folder
-from folders.permissions import FolderRUDPermission
 from folders.serializers import FolderSerializer
 
 
@@ -15,7 +14,6 @@ class FolderViewSet(ModelViewSet):
 
     def get_queryset(self):
         return self.queryset.filter(owner=self.request.user).order_by('-created_at')
-        #I prefer use this for giving 404 if user want to access other user's file.(by using permission class it will give 403)
 
     def perform_create(self, serializer):
         serializer.save(owner=self.request.user)

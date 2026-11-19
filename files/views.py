@@ -17,7 +17,6 @@ from rest_framework.permissions import IsAuthenticated
 from files.kafka_producer import publish_upload_complete, publish_quota_recalculate
 from files.minio_client import get_minio_client, get_minio_public_client
 from files.models import Files
-from files.permissions import FileRetrieveUpdatePermission
 from files.serializers import FileSerializer
 from files.cache_utils import get_folder_files_cache_key, invalidate_folder_files_cache
 
@@ -34,10 +33,6 @@ class FileViewSet(mixins.ListModelMixin,
 
     def get_queryset(self):
         return self.queryset.filter(owner=self.request.user)
-
-        # if user want to retrieve other user's file , we will give him 404.
-        # we could use permission class, but  it will give 403. this proves to user that there is a file
-        # ,but you can't access it. so 404 is better for less data leakage
 
     def perform_create(self, serializer):
         instance = serializer.save(owner=self.request.user)
